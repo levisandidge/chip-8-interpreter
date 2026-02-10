@@ -1,4 +1,11 @@
 #include <stdbool.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+
+//#include <stdlib.h>
 
 #define MAX_SIZE 12
 
@@ -71,9 +78,23 @@ typedef struct
 
 int main(int argc, char* argv)
 {
-    //TODO: Add a log file for errors
+    // Add a log file for errors
+    const char* error_file = "./log.txt";
+    FILE *rom_fd = freopen(error_file, "a", STDERR_FILENO);
+    if (rom_fd == NULL) {
+
+        // Print which type of error have in a code
+        printf("Error Number % d\n", errno);
+
+        // print program detail "Success or failure"
+        perror("Program");
+    }
 
     //TODO: map rom into memory
+    if (argc < 2) {
+        return 1;
+    } 
+    char* file_path = argv[1];
 
     //TODO: setup cpu
     CPU cpu;
