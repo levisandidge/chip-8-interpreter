@@ -5,7 +5,10 @@
 #include <unistd.h>
 #include <stdio.h>
 
-//#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+
+#include <stdlib.h>
 
 #define MAX_SIZE 12
 
@@ -41,7 +44,7 @@ typedef struct
 
 typedef struct 
 {
-    bool arr[64][32]
+    bool arr[64][32];
 } SCREEN;
 
 typedef struct
@@ -75,13 +78,13 @@ typedef struct
     BYTE VF;
 } CPU;
 
+// TODO: Setup SDL3
 
-int main(int argc, char* argv)
-{
+int main(int argc, char* argv[]) {
     // Add a log file for errors
-    const char* error_file = "./log.txt";
-    FILE *rom_fd = freopen(error_file, "a", STDERR_FILENO);
-    if (rom_fd == NULL) {
+    const char *error_file = "./log.txt";
+    FILE *error_fd = freopen(error_file, "a", stderr);
+    if (error_fd == NULL) {
 
         // Print which type of error have in a code
         printf("Error Number % d\n", errno);
@@ -92,9 +95,24 @@ int main(int argc, char* argv)
 
     //TODO: map rom into memory
     if (argc < 2) {
+        perror("Enter a file path to a ROM");
         return 1;
-    } 
+    }
+
     char* file_path = argv[1];
+    int rom_fd = open(file_path, O_RDWR);
+    if (rom_fd == -1) {
+        perror("Failed to open ROM file");
+        return 1;
+    }
+
+    struct stat rom_info;
+    if (fstat(rom_fd, &rom_info) != 0) {
+        perror("Could not get file rom info");
+        return 1;
+    }
+
+    void *rom = mmap(NULL, rom_info.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, rom_fd, 0);
 
     //TODO: setup cpu
     CPU cpu;
@@ -105,13 +123,10 @@ int main(int argc, char* argv)
     cpu.instruction = 
     cpu.PC += 2;
 
-    //decode
+    //decode and execute within the switch statement
     switch (cpu.instruction) {
 
     };
-
-    //execute
-
 
     return 0;
 }
