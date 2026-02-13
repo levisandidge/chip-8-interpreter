@@ -108,24 +108,41 @@ int main(int argc, char* argv[]) {
 
     struct stat rom_info;
     if (fstat(rom_fd, &rom_info) != 0) {
-        perror("Could not get file rom info");
+        perror("Could not get ROM info");
         return 1;
     }
 
-    void *rom = mmap(NULL, rom_info.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, rom_fd, 0);
+    WORD *rom = mmap(NULL, rom_info.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, rom_fd, 0);
+    if (rom == MAP_FAILED) {
+        perror("MMAP Failed");
+        return 1;
+    }
+
 
     //TODO: setup cpu
     CPU cpu;
     cpu.PC = 0x200;
 
-    //fetch
+    SCREEN screen;
 
-    cpu.instruction = 
+    STACK stack;
+    cpu.SP = 0;
+
+    // TODO: fetch:
+    // Get each nibble out of the instruction to be able to decode instruction
+
+    cpu.instruction = rom[cpu.PC];
+    BYTE first = (cpu.instruction & 0xFF00) >> 4;
+    BYTE second = cpu.instruction & 0x00FF;
+
     cpu.PC += 2;
 
-    //decode and execute within the switch statement
+    // TODO: decode and execute within the switch statement
     switch (cpu.instruction) {
-
+        case (0x00E0): {
+            memset(screen.arr, 0, sizeof(*screen.arr));
+            break;
+        }
     };
 
     return 0;
