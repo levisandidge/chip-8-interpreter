@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,10 +13,10 @@
 
 #define MAX_SIZE 12
 
-typedef unsigned char BYTE;
-typedef char SIGNED_BYTE;
-typedef unsigned short WORD;
-typedef signed short SIGNED_WORD;
+typedef uint8_t BYTE;
+typedef int8_t SIGNED_BYTE;
+typedef uint16_t WORD;
+typedef int16_t SIGNED_WORD;
 
 /*
 Font:
@@ -52,30 +53,14 @@ typedef struct
     // 2 byte instructions
     WORD  instruction;
 
-    WORD PC;
-    WORD SP;
-    WORD I;
+    WORD PC, SP, I;
 
     BYTE DELAY_TIMER;
     BYTE SOUND_TIMER;
 
     // registers
-    BYTE V0;
-    BYTE V1;
-    BYTE V2;
-    BYTE V3;
-    BYTE V4;
-    BYTE V5;
-    BYTE V6;
-    BYTE V7;
-    BYTE V8;
-    BYTE V9;
-    BYTE VA;
-    BYTE VB;
-    BYTE VC;
-    BYTE VD;
-    BYTE VE;
-    BYTE VF;
+    //BYTE V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, VA, VB, VC, VD, VE, VF;
+    BYTE V[16];
 } CPU;
 
 // TODO: Setup SDL3
@@ -121,7 +106,8 @@ int main(int argc, char* argv[]) {
 
     //TODO: setup cpu
     CPU cpu;
-    cpu.PC = 0x200;
+    //cpu.PC = 0x200;
+    cpu.PC = 0x0000;
 
     SCREEN screen;
 
@@ -138,12 +124,57 @@ int main(int argc, char* argv[]) {
     cpu.PC += 2;
 
     // TODO: decode and execute within the switch statement
+    switch((first & 0xF0) >> 2) {
+        case (0x1):
+            cpu.PC = ((WORD)(first & 0x0F) << 4) + second;
+            break;
+        case (0x6):
+            cpu.V[first & 0x0F] = second;
+            break;
+        case (0x7):
+            cpu.V[first & 0x0F] += second;
+            break;
+        case (0xA):
+            cpu.I = ((WORD)(first & 0x0F) << 4) + second;
+            break;
+        case (0xD):
+            WORD x = cpu.V[first & 0xF] % 64;
+            WORD y = cpu.V[(second & 0xF0) >> 2] % 32;
+            BYTE n = second & 0xF;
+            BYTE sprite;
+
+            cpu.V[0xF] = 0;
+
+            for (int i = 0; i < n; i++) {
+                if (y + i> 31) {
+                    continue;
+                }
+
+                sprite = rom[cpu.I + i];
+                for (int j = 0; j < 8; j++) {
+                    if (x + j > 63) {
+                        continue;
+                    }
+                    screen.arr[x+i][y+j] = screen.arr[x+i][y+j] ^ ((sprite >> j) & 0x0001);
+                    if (screen.arr[x+i][y+j] == true && (sprite >> j) == 1) {
+                        cpu.V[0xF] = 1;
+                    }
+                }
+            }
+            break;
+    }
+
     switch (cpu.instruction) {
-        case (0x00E0): {
+        case (0x00E0): 
             memset(screen.arr, 0, sizeof(*screen.arr));
             break;
-        }
     };
 
+    for (int i = 0; i < 32; i++) {
+        for (int j = 0; j < 64; j++) {
+            printf("%d ", screen.arr[j][i]);
+        }
+        printf("\n");
+    }
     return 0;
 }
