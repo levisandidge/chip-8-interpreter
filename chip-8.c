@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
         perror("Program");
     }
 
-    //TODO: map rom into memory
+    //TODO: map ROM into memory
     if (argc < 2) {
         perror("Enter a file path to a ROM");
         return 1;
@@ -97,6 +97,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // TODO: Fix by malloc 4k of memory and memcopy rom into memory
+    // TODO: Map font into ram as well
     WORD *rom = mmap(NULL, rom_info.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, rom_fd, 0);
     if (rom == MAP_FAILED) {
         perror("MMAP Failed");
@@ -106,69 +108,72 @@ int main(int argc, char* argv[]) {
 
     //TODO: setup cpu
     CPU cpu;
-    //cpu.PC = 0x200;
-    cpu.PC = 0x0000;
+    cpu.PC = 0x200;
 
-    SCREEN screen;
+    SCREEN screen = {0};
 
-    STACK stack;
+    STACK stack = {0};
     cpu.SP = 0;
 
     // TODO: fetch:
     // Get each nibble out of the instruction to be able to decode instruction
 
-    cpu.instruction = rom[cpu.PC];
-    BYTE first = (cpu.instruction & 0xFF00) >> 4;
-    BYTE second = cpu.instruction & 0x00FF;
+    for (int i = 0; i < 40; i++) {
+        cpu.instruction = rom[cpu.PC];
+        cpu.instruction = __builtin_bswap16(cpu.instruction);
+        //printf("%#04X\n", cpu.instruction);
+        BYTE first = (cpu.instruction & 0xFF00) >> 4;
+        BYTE second = cpu.instruction & 0x00FF;
 
-    cpu.PC += 2;
+        cpu.PC += 1;
 
-    // TODO: decode and execute within the switch statement
-    switch((first & 0xF0) >> 2) {
-        case (0x1):
-            cpu.PC = ((WORD)(first & 0x0F) << 4) + second;
-            break;
-        case (0x6):
-            cpu.V[first & 0x0F] = second;
-            break;
-        case (0x7):
-            cpu.V[first & 0x0F] += second;
-            break;
-        case (0xA):
-            cpu.I = ((WORD)(first & 0x0F) << 4) + second;
-            break;
-        case (0xD):
-            WORD x = cpu.V[first & 0xF] % 64;
-            WORD y = cpu.V[(second & 0xF0) >> 2] % 32;
-            BYTE n = second & 0xF;
-            BYTE sprite;
+        // TODO: decode and execute within the switch statement
+        switch(first & 0xF0) {
+            case 0x10:
+                cpu.PC = ((WORD)(first & 0x0F) << 8) + second;
+                break;
+            case 0x60:
+                cpu.V[first & 0x0F] = second;
+                break;
+            case 0x70:
+                cpu.V[first & 0x0F] += second;
+                break;
+            case 0xA0:
+                cpu.I = ((WORD)(first & 0x0F) << 8) + second;
+                break;
+            case 0xD0:
+                WORD x = cpu.V[first & 0xF] % 64;
+                WORD y = cpu.V[(second & 0xF0) >> 4] % 32;
+                BYTE n = second & 0xF;
+                BYTE sprite;
 
-            cpu.V[0xF] = 0;
+                cpu.V[0xF] = 0;
 
-            for (int i = 0; i < n; i++) {
-                if (y + i> 31) {
-                    continue;
-                }
-
-                sprite = rom[cpu.I + i];
-                for (int j = 0; j < 8; j++) {
-                    if (x + j > 63) {
+                for (int i = 0; i < n; i++) {
+                    if (y + i> 31) {
                         continue;
                     }
-                    screen.arr[x+i][y+j] = screen.arr[x+i][y+j] ^ ((sprite >> j) & 0x0001);
-                    if (screen.arr[x+i][y+j] == true && (sprite >> j) == 1) {
-                        cpu.V[0xF] = 1;
+
+                    sprite = rom[cpu.I + i];
+                    for (int j = 0; j < 8; j++) {
+                        if (x + j > 63) {
+                            continue;
+                        }
+                        screen.arr[x+j][y+i] = screen.arr[x+j][y+i] ^ ((sprite >> j) & 0x0001);
+                        if (screen.arr[x+i][y+j] == true && (sprite >> j) == 1) {
+                            cpu.V[0xF] = 1;
+                        }
                     }
                 }
-            }
-            break;
-    }
+                break;
+        }
 
-    switch (cpu.instruction) {
-        case (0x00E0): 
-            memset(screen.arr, 0, sizeof(*screen.arr));
-            break;
-    };
+        switch (cpu.instruction) {
+            case 0x00E0: 
+                memset(screen.arr, 0, sizeof(*screen.arr));
+                break;
+        };
+    }
 
     for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 64; j++) {
