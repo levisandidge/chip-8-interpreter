@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #define MAX_SIZE 12
+#define RAM_SIZE 4096
 
 typedef uint8_t BYTE;
 typedef int8_t SIGNED_BYTE;
@@ -63,6 +64,32 @@ typedef struct
     BYTE V[16];
 } CPU;
 
+void DXYN(CPU *cpu, SCREEN *screen, WORD *RAM, BYTE first, BYTE second) {
+    WORD x = cpu->V[first & 0xF] % 64;
+    WORD y = cpu->V[(second & 0xF0) >> 4] % 32;
+    BYTE n = second & 0xF;
+    BYTE sprite;
+
+    cpu->V[0xF] = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (y + i> 31) {
+            continue;
+        }
+
+        sprite = RAM[cpu->I + i];
+        for (int j = 0; j < 8; j++) {
+            if (x + j > 63) {
+                continue;
+            }
+            screen->arr[x+j][y+i] = screen->arr[x+j][y+i] ^ ((sprite >> j) & 0x0001);
+            if (screen->arr[x+i][y+j] == true && (sprite >> j) == 1) {
+                cpu->V[0xF] = 1;
+            }
+        }
+    }
+}
+
 // TODO: Setup SDL3
 
 int main(int argc, char* argv[]) {
@@ -99,12 +126,13 @@ int main(int argc, char* argv[]) {
 
     // TODO: Fix by malloc 4k of memory and memcopy rom into memory
     // TODO: Map font into ram as well
-    WORD *rom = mmap(NULL, rom_info.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, rom_fd, 0);
+    WORD *RAM = malloc(RAM_SIZE * sizeof(BYTE));
+    WORD *rom = mmap(NULL, rom_info.st_size, PROT_READ, MAP_PRIVATE, rom_fd, 0);
     if (rom == MAP_FAILED) {
         perror("MMAP Failed");
         return 1;
     }
-
+    memcpy(RAM + 0x200, rom,rom_info.st_size);
 
     //TODO: setup cpu
     CPU cpu;
@@ -119,7 +147,7 @@ int main(int argc, char* argv[]) {
     // Get each nibble out of the instruction to be able to decode instruction
 
     for (int i = 0; i < 40; i++) {
-        cpu.instruction = rom[cpu.PC];
+        cpu.instruction = RAM[cpu.PC];
         cpu.instruction = __builtin_bswap16(cpu.instruction);
         //printf("%#04X\n", cpu.instruction);
         BYTE first = (cpu.instruction & 0xFF00) >> 4;
@@ -142,29 +170,7 @@ int main(int argc, char* argv[]) {
                 cpu.I = ((WORD)(first & 0x0F) << 8) + second;
                 break;
             case 0xD0:
-                WORD x = cpu.V[first & 0xF] % 64;
-                WORD y = cpu.V[(second & 0xF0) >> 4] % 32;
-                BYTE n = second & 0xF;
-                BYTE sprite;
-
-                cpu.V[0xF] = 0;
-
-                for (int i = 0; i < n; i++) {
-                    if (y + i> 31) {
-                        continue;
-                    }
-
-                    sprite = rom[cpu.I + i];
-                    for (int j = 0; j < 8; j++) {
-                        if (x + j > 63) {
-                            continue;
-                        }
-                        screen.arr[x+j][y+i] = screen.arr[x+j][y+i] ^ ((sprite >> j) & 0x0001);
-                        if (screen.arr[x+i][y+j] == true && (sprite >> j) == 1) {
-                            cpu.V[0xF] = 1;
-                        }
-                    }
-                }
+                DXYN(&cpu, &screen, RAM, first, second);
                 break;
         }
 
@@ -175,11 +181,14 @@ int main(int argc, char* argv[]) {
         };
     }
 
+
+    /*
     for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 64; j++) {
             printf("%d ", screen.arr[j][i]);
         }
         printf("\n");
     }
+    */
     return 0;
 }
