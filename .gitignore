@@ -2,3 +2,5 @@ roms/
 .DS_Store
 a.out
 log.txt
+CMakeLists.txt
+build/
