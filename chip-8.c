@@ -31,9 +31,11 @@ typedef struct {
 } SDL_GRAPHICS;
 
 void initilize_window(SDL_GRAPHICS* window) {
+    // TODO: Set up audio
     SDL_Init(SDL_INIT_VIDEO);
 
-    window->win = SDL_CreateWindow("CHIP-8", 640, 320, SDL_WINDOW_OPENGL | SDL_WINDOW_ALWAYS_ON_TOP);
+    window->win = SDL_CreateWindow("CHIP-8", 640, 320, 0);
+    //window->win = SDL_CreateWindow("CHIP-8", 640, 320, SDL_WINDOW_OPENGL | SDL_WINDOW_ALWAYS_ON_TOP);
 
     window->ren = SDL_CreateRenderer(window->win, NULL);
 
@@ -140,7 +142,7 @@ void DXYN(CPU *cpu, SCREEN *screen, BYTE *RAM, BYTE X, BYTE Y, BYTE N) {
             if (x + j > 63) {
                 continue;
             }
-            screen->arr[x+j][y+i] = screen->arr[x + j][y + i] ^ ((sprite >> j) & 0x0001);
+            screen->arr[x+j][y+i] = screen->arr[x + j][y + i] ^ ((sprite >> (7 - j)) & 0x0001);
             if (screen->arr[x+i][y+j] == true && (sprite >> j) == 1) {
                 cpu->V[0xF] = 1;
             }
@@ -180,9 +182,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // TODO: Fix by calloc 4k of memory and memcopy rom into memory
-    // TODO: Map font into ram as well
-    //BYTE *RAM = calloc(RAM_SIZE, sizeof(BYTE));
     BYTE RAM[RAM_SIZE] = {0};
     WORD *rom = mmap(NULL, rom_info.st_size, PROT_READ, MAP_PRIVATE, rom_fd, 0);
     if (rom == MAP_FAILED) {
@@ -208,8 +207,7 @@ int main(int argc, char* argv[]) {
 
    initilize_window(&window);
 
-    for (int i = 0; i < 42; i++) {
-         // TODO: fetch:
+    for (int i = 0; i < 100000; i++) {
         // Get each nibble out of the instruction to be able to decode instruction
         cpu.instruction = RAM[cpu.PC] << 8 | RAM[cpu.PC + 1];
         //cpu.instruction = __builtin_bswap16(cpu.instruction);
@@ -223,7 +221,7 @@ int main(int argc, char* argv[]) {
         BYTE NN = cpu.instruction & 0x00FF;
         WORD NNN = cpu.instruction & 0x0FFF;
 
-        printf("%X\n", cpu.instruction);
+        //printf("%X\n", cpu.instruction);
 
         cpu.PC += 2;
 
@@ -232,10 +230,24 @@ int main(int argc, char* argv[]) {
             case 0x0:
                 if (NNN == 0x0E0) {
                     memset(screen.arr, 0, sizeof(screen.arr));
+                } else if (NNN == 0x0EE) {
+                    ret(&stack, &cpu);
                 }
                 break;
             case 0x1:
                 cpu.PC = NNN;
+                break;
+            case 0x2:
+                call(&stack, &cpu, NNN);
+                break;
+            case 0x3:
+                if (cpu.V[X] == NN) cpu.PC += 2;
+                break;
+            case 0x4:
+                if (cpu.V[X] != NN) cpu.PC += 2;
+                break;
+            case 0x5:
+                if (cpu.V[X] == cpu.V[Y]) cpu.PC += 2;
                 break;
             case 0x6:
                 cpu.V[X] = NN;
@@ -243,18 +255,68 @@ int main(int argc, char* argv[]) {
             case 0x7:
                 cpu.V[X] += NN;
                 break;
+            case 0x8:
+                switch (N) {
+                    case 0x0:
+                        cpu.V[X] = cpu.V[Y];
+                        break;
+                    case 0x1:
+                        cpu.V[X] = cpu.V[X] | cpu.V[Y];
+                        break;
+                    case 0x2:
+                        cpu.V[X] = cpu.V[X] & cpu.V[Y];
+                        break;
+                    case 0x3:
+                        cpu.V[X] = cpu.V[X] ^ cpu.V[Y];
+                        break;
+                    case 0x4:
+                        if ((((int)cpu.V[X] + (int)cpu.V[Y]) >> 8) == 1) cpu.V[0xF] = 1;
+                        cpu.V[X] += cpu.V[Y];
+                        break;
+                    case 0x5:
+                        if ((int)cpu.V[X] - (int)cpu.V[Y] < 0) cpu.V[0xF] = 0;
+                        cpu.V[X] -= cpu.V[Y];
+                        break;
+                    case 0x6:
+                        cpu.V[0xF] = cpu.V[X] & 0x0001;
+                        cpu.V[0xF] = cpu.V[X] >> cpu.V[Y];
+                        break;
+                    case 0x7:
+                        if ((int)cpu.V[Y] - (int)cpu.V[X] < 0) cpu.V[0xF] = 0;
+                        cpu.V[Y] -= cpu.V[X];
+                        break;
+                    case 0xE:
+                        cpu.V[0xF] = cpu.V[X] & 0x8000 >> 7;
+                        cpu.V[0xF] = cpu.V[X] << cpu.V[Y];
+                }
+            case 0x9:
+                if (cpu.V[X] != cpu.V[Y]) cpu.PC += 2;
+                break;
             case 0xA:
                 cpu.I = NNN;
+                break;
+            case 0xB:
+                cpu.PC = NNN + cpu.V[0];
+                break;
+            case 0xC:
+                cpu.V[X] = (rand() % 255) & NN;
                 break;
             case 0xD:
                 DXYN(&cpu, &screen, RAM, X, Y, N);
                 break;
+            // TODO: setup keys
+
         }
     }
     
     for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 64; j++) {
-            printf("%d ", screen.arr[j][i]);
+            if (screen.arr[j][i] == 1) {
+                printf("X");
+            } else {
+                printf(" ");
+            }
+            //printf("%d ", screen.arr[j][i]);
         }
         printf("\n");
     }
