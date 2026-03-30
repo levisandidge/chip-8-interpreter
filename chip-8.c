@@ -15,13 +15,35 @@
 #include <SDL3/SDL_main.h>
 
 #define PROGRAM_START 0x200
-#define MAX_SIZE 16
+#define STACK_SIZE 16
 #define RAM_SIZE 4096
 
 typedef uint8_t BYTE;
 typedef int8_t SIGNED_BYTE;
 typedef uint16_t WORD;
 typedef int16_t SIGNED_WORD;
+
+typedef struct {
+    WORD arr[STACK_SIZE];
+} STACK;
+
+typedef struct {
+    bool arr[64][32];
+} SCREEN;
+
+typedef struct {
+    // 2 byte instructions
+    WORD instruction;
+
+    WORD PC, SP, I;
+
+    BYTE DELAY_TIMER;
+    BYTE SOUND_TIMER;
+
+    // registers
+    //BYTE V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, VA, VB, VC, VD, VE, VF;
+    BYTE V[16];
+} CPU;
 
 // TODO: Setup SDL3
 
@@ -56,10 +78,9 @@ void initilize_window(SDL_GRAPHICS* window) {
 
         // Do game logic, present a frame, etc.
     }
-
 }
 
-void render(SDL_GRAPHICS* window) {
+void render(SDL_GRAPHICS* window, SCREEN* screen) {
 
 
     SDL_RenderPresent(window->ren);
@@ -91,28 +112,6 @@ BYTE font[] = {
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
-
-typedef struct {
-    WORD arr[MAX_SIZE];
-} STACK;
-
-typedef struct {
-    bool arr[64][32];
-} SCREEN;
-
-typedef struct {
-    // 2 byte instructions
-    WORD instruction;
-
-    WORD PC, SP, I;
-
-    BYTE DELAY_TIMER;
-    BYTE SOUND_TIMER;
-
-    // registers
-    //BYTE V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, VA, VB, VC, VD, VE, VF;
-    BYTE V[16];
-} CPU;
 
 void call(STACK* stack, CPU* cpu, WORD NNN) {
     stack->arr[cpu->SP] = cpu->PC;
@@ -206,12 +205,11 @@ int main(int argc, char* argv[]) {
     SDL_GRAPHICS window;
 
    initilize_window(&window);
+   bool rerender = false;
 
-    for (int i = 0; i < 100000; i++) {
-        // Get each nibble out of the instruction to be able to decode instruction
+    for (int i = 0; i < 1000; i++) {
+        // Get the program instruction
         cpu.instruction = RAM[cpu.PC] << 8 | RAM[cpu.PC + 1];
-        //cpu.instruction = __builtin_bswap16(cpu.instruction);
-        //printf("%#04X\n", cpu.instruction);
 
         BYTE N1 = (cpu.instruction & 0xF000) >> 12;
         BYTE X = (cpu.instruction & 0x0F00) >> 8;
@@ -221,7 +219,7 @@ int main(int argc, char* argv[]) {
         BYTE NN = cpu.instruction & 0x00FF;
         WORD NNN = cpu.instruction & 0x0FFF;
 
-        //printf("%X\n", cpu.instruction);
+        //printf("%04X\n", cpu.instruction);
 
         cpu.PC += 2;
 
@@ -302,11 +300,55 @@ int main(int argc, char* argv[]) {
                 cpu.V[X] = (rand() % 255) & NN;
                 break;
             case 0xD:
+                rerender = true;
                 DXYN(&cpu, &screen, RAM, X, Y, N);
                 break;
             // TODO: setup keys
 
+            case 0xF:
+                switch (NN) {
+                    case 0x07:
+                        cpu.V[X] = cpu.DELAY_TIMER;
+                        break;
+                    case 0x0A:
+                        cpu.V[X] = 0; //KEY
+                        break;
+                    case 0x15:
+                        cpu.DELAY_TIMER = cpu.V[X];
+                        break;
+                    case 0x18:
+                        cpu.SOUND_TIMER = cpu.V[X];
+                        break;
+                    case 0x1E:
+                        cpu.I += cpu.V[X];
+                        break;
+                    case 0x29:
+                        cpu.I = 0; //point I to hex character of V[X]
+                        break;
+                    case 0x33:
+                        RAM[cpu.I] = cpu.V[X] / 100;
+                        RAM[cpu.I + 1] = cpu.V[X] / 10 % 10;
+                        RAM[cpu.I + 2] = cpu.V[X] % 10;
+                        break;
+                    case 0x55:
+                        for (int i = 0; i <= X; i++) {
+                            RAM[cpu.I + i] = cpu.V[i];
+                        }
+                        break;
+                    case 0x65:
+                        for (int i = 0; i <=X; i++) {
+                            cpu.V[i] = RAM[cpu.I + i];
+                        }
+                        break;
+                }
         }
+
+        if (rerender == true) {
+            
+            render(&window, &screen);
+            rerender = false;
+        }
+
     }
     
     for (int i = 0; i < 32; i++) {
