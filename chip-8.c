@@ -17,6 +17,8 @@
 #define PROGRAM_START 0x200
 #define STACK_SIZE 16
 #define RAM_SIZE 4096
+#define WINDOW_HEIGHT 320
+#define WINDOW_WIDTH 640
 
 typedef uint8_t BYTE;
 typedef int8_t SIGNED_BYTE;
@@ -50,39 +52,48 @@ typedef struct {
 typedef struct {
     SDL_Window* win;
     SDL_Renderer* ren;
+    SDL_Texture* texture;
 } SDL_GRAPHICS;
 
 void initilize_window(SDL_GRAPHICS* window) {
     // TODO: Set up audio
     SDL_Init(SDL_INIT_VIDEO);
 
-    window->win = SDL_CreateWindow("CHIP-8", 640, 320, 0);
+    window->win = SDL_CreateWindow("CHIP-8", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE);
     //window->win = SDL_CreateWindow("CHIP-8", 640, 320, SDL_WINDOW_OPENGL | SDL_WINDOW_ALWAYS_ON_TOP);
 
     window->ren = SDL_CreateRenderer(window->win, NULL);
 
+    window->texture = SDL_CreateTexture(window->ren, SDL_PIXELFORMAT_RGBA4444, SDL_TEXTUREACCESS_STREAMING, 64, 32);
+
+    SDL_SetTextureScaleMode(window->texture, SDL_SCALEMODE_NEAREST);
+
     SDL_SetRenderDrawColor(window->ren, 0, 0, 0, 255);
     SDL_RenderClear(window->ren);
     SDL_RenderPresent(window->ren); // Show the black screen
-
-    bool done = false;
-
-    while (!done) {
-        SDL_Event event;
-
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) {
-                done = true;
-            }
-        }
-
-        // Do game logic, present a frame, etc.
-    }
 }
 
 void render(SDL_GRAPHICS* window, SCREEN* screen) {
+    void* mPixels;
+    int pitch;
 
+    SDL_LockTexture(window->texture, NULL, &mPixels, &pitch);
 
+    WORD* pixels = (WORD*)mPixels;
+
+    for(int x = 0; x < 64; x++) {
+        for (int y = 0; y < 32; y++) {
+            if (screen->arr[x][y] == 1) {
+                pixels[y * (pitch / 2) + x] = 0xFFFF;
+            } else {
+                pixels[y * (pitch / 2) + x] = 0x0000;
+            }
+        }
+    }
+
+    SDL_UnlockTexture(window->texture);
+    SDL_RenderClear(window->ren);
+    SDL_RenderTexture(window->ren, window->texture, NULL, NULL);
     SDL_RenderPresent(window->ren);
 }
 
@@ -204,10 +215,20 @@ int main(int argc, char* argv[]) {
 
     SDL_GRAPHICS window;
 
-   initilize_window(&window);
-   bool rerender = false;
+    initilize_window(&window);
 
-    for (int i = 0; i < 1000; i++) {
+    bool done = false;
+    bool rerender = false;
+
+    while (!done) {
+        SDL_Event event;
+
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_EVENT_QUIT) {
+                done = true;
+            }
+        }
+
         // Get the program instruction
         cpu.instruction = RAM[cpu.PC] << 8 | RAM[cpu.PC + 1];
 
@@ -348,9 +369,9 @@ int main(int argc, char* argv[]) {
             render(&window, &screen);
             rerender = false;
         }
-
     }
     
+    /*
     for (int i = 0; i < 32; i++) {
         for (int j = 0; j < 64; j++) {
             if (screen.arr[j][i] == 1) {
@@ -362,7 +383,7 @@ int main(int argc, char* argv[]) {
         }
         printf("\n");
     }
-
+    */
     delete_window(&window);
 
     return 0;
