@@ -130,9 +130,9 @@ void call(STACK* stack, CPU* cpu, WORD NNN) {
     cpu->PC = NNN;
 }
 
-WORD ret(STACK* stack, CPU* cpu) {
+void ret(STACK* stack, CPU* cpu) {
     cpu->SP--;
-    return stack->arr[cpu->SP];
+    cpu->PC = stack->arr[cpu->SP];
 }
 
 void DXYN(CPU *cpu, SCREEN *screen, BYTE *RAM, BYTE X, BYTE Y, BYTE N) {
@@ -289,7 +289,7 @@ int main(int argc, char* argv[]) {
                         cpu.V[X] = cpu.V[X] ^ cpu.V[Y];
                         break;
                     case 0x4:
-                        if ((((int)cpu.V[X] + (int)cpu.V[Y]) >> 8) == 1) cpu.V[0xF] = 1;
+                        if ((((int)cpu.V[X] + (int)cpu.V[Y]) >> 7) == 1) cpu.V[0xF] = 1;
                         cpu.V[X] += cpu.V[Y];
                         break;
                     case 0x5:
@@ -297,16 +297,17 @@ int main(int argc, char* argv[]) {
                         cpu.V[X] -= cpu.V[Y];
                         break;
                     case 0x6:
-                        cpu.V[0xF] = cpu.V[X] & 0x0001;
-                        cpu.V[0xF] = cpu.V[X] >> cpu.V[Y];
+                        cpu.V[0xF] = cpu.V[X] & 0x01;
+                        cpu.V[X] = cpu.V[X] >> 1;
                         break;
                     case 0x7:
                         if ((int)cpu.V[Y] - (int)cpu.V[X] < 0) cpu.V[0xF] = 0;
                         cpu.V[Y] -= cpu.V[X];
                         break;
                     case 0xE:
-                        cpu.V[0xF] = cpu.V[X] & 0x8000 >> 7;
-                        cpu.V[0xF] = cpu.V[X] << cpu.V[Y];
+                        cpu.V[0xF] = cpu.V[X] & 0x80 >> 3;
+                        cpu.V[X] = cpu.V[X] << 1;
+                        break;
                 }
             case 0x9:
                 if (cpu.V[X] != cpu.V[Y]) cpu.PC += 2;
@@ -384,6 +385,7 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
     */
+    
     delete_window(&window);
 
     return 0;
