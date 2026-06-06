@@ -1,5 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -9,6 +10,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #define PROGRAM_START 0x200
@@ -62,6 +64,12 @@ BYTE font[] = {
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
+
+static const SDL_Scancode chip8_keys[16] = {
+    SDL_SCANCODE_X, SDL_SCANCODE_1, SDL_SCANCODE_2, SDL_SCANCODE_3,
+    SDL_SCANCODE_Q, SDL_SCANCODE_W, SDL_SCANCODE_E, SDL_SCANCODE_A,
+    SDL_SCANCODE_S, SDL_SCANCODE_D, SDL_SCANCODE_Z, SDL_SCANCODE_C,
+    SDL_SCANCODE_4, SDL_SCANCODE_R, SDL_SCANCODE_F, SDL_SCANCODE_V};
 
 typedef struct {
   SDL_Window *win;
@@ -160,6 +168,7 @@ void DXYN(CPU *cpu, SCREEN *screen, BYTE *RAM, BYTE X, BYTE Y, BYTE N) {
 }
 
 void math(BYTE X, BYTE Y, BYTE N, CPU *cpu) {
+  WORD sum = 0;
   switch (N) {
   case 0x0:
     cpu->V[X] = cpu->V[Y];
@@ -174,13 +183,17 @@ void math(BYTE X, BYTE Y, BYTE N, CPU *cpu) {
     cpu->V[X] = cpu->V[X] ^ cpu->V[Y];
     break;
   case 0x4:
-    if ((((int)cpu->V[X] + (int)cpu->V[Y]) >> 7) == 1)
+    sum = cpu->V[X] + cpu->V[Y];
+    if (sum > 255) {
       cpu->V[0xF] = 1;
-    cpu->V[X] += cpu->V[Y];
+    } else {
+      cpu->V[0xF] = 0;
+    }
+    cpu->V[X] = sum & 0xFF;
     break;
   case 0x5:
     cpu->V[0xF] = 1;
-    if ((int)cpu->V[X] - (int)cpu->V[Y] < 0)
+    if (cpu->V[X] < cpu->V[Y])
       cpu->V[0xF] = 0;
     cpu->V[X] -= cpu->V[Y];
     break;
@@ -195,155 +208,11 @@ void math(BYTE X, BYTE Y, BYTE N, CPU *cpu) {
     cpu->V[X] = cpu->V[Y] - cpu->V[X];
     break;
   case 0xE:
-    cpu->V[0xF] = cpu->V[X] & 0x80 >> 3;
+    cpu->V[0xF] = (cpu->V[X] & 0x80) >> 7;
     cpu->V[X] = cpu->V[X] << 1;
     break;
   default:
     fprintf(stderr, "unknown instruction: 0x%X/n", cpu->instruction);
-    break;
-  }
-}
-
-void key_not_pressed(BYTE X, CPU *cpu, const bool *keys) {
-  switch (cpu->V[X]) {
-  case 0x0:
-    if (keys[SDL_SCANCODE_X])
-      cpu->PC += 2;
-    break;
-  case 0x1:
-    if (keys[SDL_SCANCODE_1])
-      cpu->PC += 2;
-    break;
-  case 0x2:
-    if (keys[SDL_SCANCODE_2])
-      cpu->PC += 2;
-    break;
-  case 0x3:
-    if (keys[SDL_SCANCODE_3])
-      cpu->PC += 2;
-    break;
-  case 0x4:
-    if (keys[SDL_SCANCODE_Q])
-      cpu->PC += 2;
-    break;
-  case 0x5:
-    if (keys[SDL_SCANCODE_W])
-      cpu->PC += 2;
-    break;
-  case 0x6:
-    if (keys[SDL_SCANCODE_E])
-      cpu->PC += 2;
-    break;
-  case 0x7:
-    if (keys[SDL_SCANCODE_A])
-      cpu->PC += 2;
-    break;
-  case 0x8:
-    if (keys[SDL_SCANCODE_S])
-      cpu->PC += 2;
-    break;
-  case 0x9:
-    if (keys[SDL_SCANCODE_D])
-      cpu->PC += 2;
-    break;
-  case 0xA:
-    if (keys[SDL_SCANCODE_Z])
-      cpu->PC += 2;
-    break;
-  case 0xB:
-    if (keys[SDL_SCANCODE_C])
-      cpu->PC += 2;
-    break;
-  case 0xC:
-    if (keys[SDL_SCANCODE_4])
-      cpu->PC += 2;
-    break;
-  case 0xD:
-    if (keys[SDL_SCANCODE_R])
-      cpu->PC += 2;
-    break;
-  case 0xE:
-    if (keys[SDL_SCANCODE_F])
-      cpu->PC += 2;
-    break;
-  case 0xF:
-    if (keys[SDL_SCANCODE_V])
-      cpu->PC += 2;
-    break;
-  default:
-    fprintf(stderr, "unknown instruction: 0X%X\n", cpu->instruction);
-    break;
-  }
-}
-
-void key_pressed(BYTE X, CPU *cpu, const bool *keys) {
-  switch (cpu->V[X]) {
-  case 0x0:
-    if (!keys[SDL_SCANCODE_X])
-      cpu->PC += 2;
-    break;
-  case 0x1:
-    if (!keys[SDL_SCANCODE_1])
-      cpu->PC += 2;
-    break;
-  case 0x2:
-    if (!keys[SDL_SCANCODE_2])
-      cpu->PC += 2;
-    break;
-  case 0x3:
-    if (!keys[SDL_SCANCODE_3])
-      cpu->PC += 2;
-    break;
-  case 0x4:
-    if (!keys[SDL_SCANCODE_Q])
-      cpu->PC += 2;
-    break;
-  case 0x5:
-    if (!keys[SDL_SCANCODE_W])
-      cpu->PC += 2;
-    break;
-  case 0x6:
-    if (!keys[SDL_SCANCODE_E])
-      cpu->PC += 2;
-    break;
-  case 0x7:
-    if (!keys[SDL_SCANCODE_A])
-      cpu->PC += 2;
-    break;
-  case 0x8:
-    if (!keys[SDL_SCANCODE_S])
-      cpu->PC += 2;
-    break;
-  case 0x9:
-    if (!keys[SDL_SCANCODE_D])
-      cpu->PC += 2;
-    break;
-  case 0xA:
-    if (!keys[SDL_SCANCODE_Z])
-      cpu->PC += 2;
-    break;
-  case 0xB:
-    if (!keys[SDL_SCANCODE_C])
-      cpu->PC += 2;
-    break;
-  case 0xC:
-    if (!keys[SDL_SCANCODE_4])
-      cpu->PC += 2;
-    break;
-  case 0xD:
-    if (!keys[SDL_SCANCODE_R])
-      cpu->PC += 2;
-    break;
-  case 0xE:
-    if (!keys[SDL_SCANCODE_F])
-      cpu->PC += 2;
-    break;
-  case 0xF:
-    if (!keys[SDL_SCANCODE_V])
-      cpu->PC += 2;
-    break;
-  default:
-    fprintf(stderr, "(line 520)unknown instruction: 0X%X\n", cpu->instruction);
     break;
   }
 }
@@ -354,76 +223,10 @@ void switch_0xf(BYTE X, WORD NN, CPU *cpu, const bool *keys, BYTE *RAM) {
     cpu->V[X] = cpu->DELAY_TIMER;
     break;
   case 0x0A:
-    switch (cpu->V[X]) {
-    case 0x0:
-      if (!keys[SDL_SCANCODE_X])
-        cpu->PC -= 2;
-      break;
-    case 0x1:
-      if (!keys[SDL_SCANCODE_1])
-        cpu->PC -= 2;
-      break;
-    case 0x2:
-      if (!keys[SDL_SCANCODE_2])
-        cpu->PC -= 2;
-      break;
-    case 0x3:
-      if (!keys[SDL_SCANCODE_3])
-        cpu->PC -= 2;
-      break;
-    case 0x4:
-      if (!keys[SDL_SCANCODE_Q])
-        cpu->PC -= 2;
-      break;
-    case 0x5:
-      if (!keys[SDL_SCANCODE_W])
-        cpu->PC -= 2;
-      break;
-    case 0x6:
-      if (!keys[SDL_SCANCODE_E])
-        cpu->PC -= 2;
-      break;
-    case 0x7:
-      if (!keys[SDL_SCANCODE_A])
-        cpu->PC -= 2;
-      break;
-    case 0x8:
-      if (!keys[SDL_SCANCODE_S])
-        cpu->PC -= 2;
-      break;
-    case 0x9:
-      if (!keys[SDL_SCANCODE_D])
-        cpu->PC -= 2;
-      break;
-    case 0xA:
-      if (!keys[SDL_SCANCODE_Z])
-        cpu->PC -= 2;
-      break;
-    case 0xB:
-      if (!keys[SDL_SCANCODE_C])
-        cpu->PC -= 2;
-      break;
-    case 0xC:
-      if (!keys[SDL_SCANCODE_4])
-        cpu->PC -= 2;
-      break;
-    case 0xD:
-      if (!keys[SDL_SCANCODE_R])
-        cpu->PC -= 2;
-      break;
-    case 0xE:
-      if (!keys[SDL_SCANCODE_F])
-        cpu->PC -= 2;
-      break;
-    case 0xF:
-      if (!keys[SDL_SCANCODE_V]) {
-        cpu->PC -= 2;
-      }
-      break;
-    default:
-      fprintf(stderr, "unknown instruction: 0X%X\n", cpu->instruction);
-      break;
+    if (!keys[chip8_keys[cpu->V[X]]]) {
+      cpu->PC -= 2;
     }
+    break;
   case 0x15:
     cpu->DELAY_TIMER = cpu->V[X];
     break;
@@ -434,7 +237,7 @@ void switch_0xf(BYTE X, WORD NN, CPU *cpu, const bool *keys, BYTE *RAM) {
     cpu->I += cpu->V[X];
     break;
   case 0x29:
-    cpu->I = RAM[cpu->V[X] * 5]; // point I to hex character of V[X]
+    cpu->I = RAM[cpu->V[X]] * 5; // point I to hex character of V[X]
     break;
   case 0x33:
     RAM[cpu->I] = cpu->V[X] / 100;
@@ -490,7 +293,7 @@ int main(int argc, char *argv[]) {
   }
 
   BYTE RAM[RAM_SIZE] = {0};
-  WORD *rom = mmap(NULL, rom_info.st_size, PROT_READ, MAP_PRIVATE, rom_fd, 0);
+  BYTE *rom = mmap(NULL, rom_info.st_size, PROT_READ, MAP_PRIVATE, rom_fd, 0);
   if (rom == MAP_FAILED) {
     perror("MMAP Failed");
     close(rom_fd);
@@ -516,6 +319,14 @@ int main(int argc, char *argv[]) {
 
   bool done = false;
   bool rerender = false;
+
+  struct timespec initial;
+  struct timespec previous;
+
+  double timer_delta = 0;
+
+  clock_gettime(CLOCK_MONOTONIC_RAW, &initial);
+  clock_gettime(CLOCK_MONOTONIC_RAW, &previous);
 
   while (!done) {
     SDL_Event event;
@@ -597,10 +408,14 @@ int main(int argc, char *argv[]) {
     case 0xE:
       switch (NN) {
       case 0x9E:
-        key_not_pressed(X, &cpu, keys);
+        if (keys[chip8_keys[cpu.V[X]]]) {
+          cpu.PC += 2;
+        }
         break;
       case 0xA1:
-        key_pressed(X, &cpu, keys);
+        if (!keys[chip8_keys[cpu.V[X]]]) {
+          cpu.PC += 2;
+        }
         break;
       default:
         fprintf(stderr, "(line 537)unknown instruction: 0X%X\n",
@@ -617,9 +432,21 @@ int main(int argc, char *argv[]) {
       render(&window, &screen);
       rerender = false;
     }
-  }
 
-  // add timing and decrement timer and buzzer by 1 every second
+    timer_delta += (initial.tv_sec + initial.tv_nsec * 1e-9) -
+                   (previous.tv_sec + previous.tv_nsec * 1e-9);
+    previous = initial;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &initial);
+
+    // add timing and decrement timer and buzzer by 1 every second
+    if (timer_delta >= (1.0 / 60)) {
+      timer_delta = 0;
+      if (cpu.DELAY_TIMER > 0)
+        cpu.DELAY_TIMER -= 1;
+      if (cpu.SOUND_TIMER > 0)
+        cpu.SOUND_TIMER -= 1;
+    }
+  }
 
   delete_window(&window);
 
