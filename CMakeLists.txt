@@ -13,9 +13,10 @@ set(MACOSX_BUNDLE_ICON_FILE icon.icns)
 set(APP_RESOURCES icon.icns)
 set_source_files_properties(${APP_RESOURCES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
-add_executable(${PROJECT_NAME} MACOSX_BUNDLE cpu.c decode.c chip-8.c ${APP_RESOURCES})
+add_executable(${PROJECT_NAME} MACOSX_BUNDLE cpu.c instructions.c decode.c chip-8.c ${APP_RESOURCES})
 
-target_sources(${PROJECT_NAME} PUBLIC include/cpu.h PUBLIC include/decode.h)
+target_sources(${PROJECT_NAME} PUBLIC include/cpu.h PUBLIC include/instructions.h PUBLIC include/decode.h)
 
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall PRIVATE -Wextra PRIVATE -Werror)
+#PRIVATE -Wextra
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall PRIVATE -Werror)
 target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3)

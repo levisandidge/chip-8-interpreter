@@ -63,3 +63,9 @@ static BYTE font[] = {
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
+
+void initialize_cpu(CPU *cpu);
+
+void call(STACK *stack, CPU *cpu, WORD NNN);
+
+void ret(STACK *stack, CPU *cpu);

@@ -21,7 +21,7 @@ typedef struct {
   SDL_Texture *texture;
 } SDL_GRAPHICS;
 
-void initilize_window(SDL_GRAPHICS *window) {
+void initialize_window(SDL_GRAPHICS *window) {
   // TODO: Set up audio
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -120,17 +120,15 @@ int main(int argc, char *argv[]) {
 
   // setup cpu
   CPU cpu;
-  cpu.PC = PROGRAM_START;
-  cpu.rerender = false;
+  initialize_cpu(&cpu);
 
   SCREEN screen = {0};
 
   STACK stack = {0};
-  cpu.SP = 0;
 
   SDL_GRAPHICS window;
 
-  initilize_window(&window);
+  initialize_window(&window);
 
   bool done = false;
 
@@ -154,7 +152,7 @@ int main(int argc, char *argv[]) {
     // Fetch the program instruction
     cpu.instruction = RAM[cpu.PC] << 8 | RAM[cpu.PC + 1];
 
-    // Decode the instruction
+    // Decode and execute the instruction
     decode(&cpu, &screen, &stack, RAM);
 
     if (cpu.rerender == true) {
@@ -162,12 +160,12 @@ int main(int argc, char *argv[]) {
       cpu.rerender = false;
     }
 
-    timer_delta += (initial.tv_sec + initial.tv_nsec * 1e-9) -
-                   (previous.tv_sec + previous.tv_nsec * 1e-9);
+    timer_delta += (previous.tv_sec + previous.tv_nsec * 1e-9) -
+                   (initial.tv_sec + initial.tv_nsec * 1e-9);
     previous = initial;
     clock_gettime(CLOCK_MONOTONIC_RAW, &initial);
 
-    // add timing and decrement timer and buzzer by 1 every second
+    // decrement timer and buzzer by 1 every second
     if (timer_delta >= (1.0 / 60)) {
       timer_delta = 0;
       if (cpu.DELAY_TIMER > 0)
