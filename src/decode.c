@@ -1,4 +1,4 @@
-#include "include/decode.h"
+#include "../include/decode.h"
 
 void OP_0(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {
   if (cpu->instruction == 0x00E0) {

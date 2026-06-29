@@ -2,7 +2,9 @@ roms/
 .DS_Store
 log.txt
 build/
+mac_build/
 vendor/
 *.icns
 *.png
 .cache/
+resources/

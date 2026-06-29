@@ -1,4 +1,4 @@
-#include "include/instructions.h"
+#include "../include/instructions.h"
 
 void OP_00E0(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {
   memset(screen->arr, 0, sizeof(screen->arr));
@@ -78,8 +78,7 @@ void OP_8XY3(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {
 void OP_8XY4(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {
   BYTE X = (cpu->instruction & 0x0F00) >> 8;
   BYTE Y = (cpu->instruction & 0x00F0) >> 4;
-  WORD sum = 0;
-  sum = cpu->V[X] + cpu->V[Y];
+  WORD sum = cpu->V[X] + cpu->V[Y];
   if (sum > 255) {
     cpu->V[0xF] = 1;
   } else {
@@ -91,10 +90,13 @@ void OP_8XY4(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {
 void OP_8XY5(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {
   BYTE X = (cpu->instruction & 0x0F00) >> 8;
   BYTE Y = (cpu->instruction & 0x00F0) >> 4;
-  cpu->V[0xF] = 1;
-  if (cpu->V[X] < cpu->V[Y])
+  BYTE diff = cpu->V[X] - cpu->V[Y];
+  if (cpu->V[X] > cpu->V[Y]) {
+     cpu->V[0xF] = 1;
+  } else {
     cpu->V[0xF] = 0;
-  cpu->V[X] -= cpu->V[Y];
+  }
+  cpu->V[X] = diff;
 }
 
 void OP_8XY6(CPU *cpu, SCREEN *screen, STACK *stack, BYTE *RAM) {

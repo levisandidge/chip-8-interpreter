@@ -13,7 +13,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "include/decode.h"
+#include "../include/decode.h"
+#include "../include/file_dialog.h"
 
 typedef struct {
   SDL_Window *win;
@@ -83,18 +84,26 @@ int main(int argc, char *argv[]) {
     perror("Program");
   }
 
+  char *dialog_path = NULL;
   char *file_path;
 
   // map ROM into memory
   if (argc < 2) {
     // TODO: open a file browser to allow for non terminal usage
-    perror("Enter a file path to a ROM");
-    return 1;
+    //fprintf(stderr, "Enter a file path to a ROM\n");
+    //return 1;
+    dialog_path = open_file_dialog();
+    if (dialog_path == NULL) {
+      fprintf(stderr, "User clicked cancel");
+      return 1;
+    }
+    file_path = dialog_path;
   } else {
     file_path = argv[1];
   }
 
   int rom_fd = open(file_path, O_RDONLY);
+  free(dialog_path);
   if (rom_fd == -1) {
     perror("Failed to open ROM file");
     return 1;
@@ -133,12 +142,8 @@ int main(int argc, char *argv[]) {
   bool done = false;
 
   struct timespec initial;
-  struct timespec previous;
-
-  double timer_delta = 0;
 
   clock_gettime(CLOCK_MONOTONIC_RAW, &initial);
-  clock_gettime(CLOCK_MONOTONIC_RAW, &previous);
 
   while (!done) {
     SDL_Event event;
@@ -159,15 +164,13 @@ int main(int argc, char *argv[]) {
       render(&window, &screen);
       cpu.rerender = false;
     }
-
-    timer_delta += (previous.tv_sec + previous.tv_nsec * 1e-9) -
-                   (initial.tv_sec + initial.tv_nsec * 1e-9);
-    previous = initial;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &initial);
+    
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 
     // decrement timer and buzzer by 1 every second
-    if (timer_delta >= (1.0 / 60)) {
-      timer_delta = 0;
+    if ((now.tv_sec + now.tv_nsec * 1e-9) - (initial.tv_sec + initial.tv_nsec * 1e-9) >= (1.0 / 60)) {
+      clock_gettime(CLOCK_MONOTONIC_RAW, &initial);
       if (cpu.DELAY_TIMER > 0)
         cpu.DELAY_TIMER -= 1;
       if (cpu.SOUND_TIMER > 0)

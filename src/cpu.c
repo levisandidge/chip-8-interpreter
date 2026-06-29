@@ -1,4 +1,4 @@
-#include "include/cpu.h"
+#include "../include/cpu.h"
 
 void initialize_cpu(CPU *cpu) {
   cpu->PC = PROGRAM_START;
