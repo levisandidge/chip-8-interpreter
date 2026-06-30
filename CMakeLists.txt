@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(chip-8 LANGUAGES C)
 
+include(FetchContent)
+set(FETCHCONTENT_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor")
+
 if(APPLE)
     enable_language(Swift)
     add_library(file_dialog SHARED
@@ -21,7 +24,15 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
-add_subdirectory(vendor/SDL3 EXCLUDE_FROM_ALL)
+FetchContent_Declare(
+  SDL3
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL
+  GIT_TAG        release-3.4.x
+)
+
+FetchContent_MakeAvailable(SDL3)
+
+#add_subdirectory(vendor/sdl3-src EXCLUDE_FROM_ALL)
 
 add_executable(${PROJECT_NAME} MACOSX_BUNDLE src/cpu.c src/instructions.c src/decode.c src/chip-8.c ${APP_RESOURCES})
 
